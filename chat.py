@@ -20,18 +20,12 @@ def query_api(api_key, api_url, data):
     if response.status_code == 200:
         return response.json()
     else:
-        # Try to parse JSON, as most HF errors are JSON
         try:
             error_details = response.json()
-            # Check for the specific "model is loading" error
             if "error" in error_details and "is currently loading" in error_details.get("error", ""):
                  estimated_time = error_details.get('estimated_time', 20)
                  return {"error": f"మోడల్ లోడ్ అవుతోంది (Model is loading). దయచేసి {int(estimated_time)} సెకన్లు వేచి ఉండి, చిత్రాన్ని మళ్లీ అప్‌లోడ్ చేయండి. (Please wait {int(estimated_time)} seconds and upload the image again.)"}
-            
-            # For other JSON errors
             return {"error": f"API Error: {error_details.get('error', 'Unknown error')}", "status_code": response.status_code}
-        
-        # If the response is not JSON, return the raw text for better debugging
         except requests.exceptions.JSONDecodeError:
             return {"error": f"API Error: Non-JSON response from server. Status Code: {response.status_code}. Server says: {response.text}"}
 
@@ -48,44 +42,45 @@ try:
     hf_api_key = st.secrets["HF_API_KEY"]
 except (KeyError, FileNotFoundError):
     st.error("Hugging Face API key not found. Please add it to your Streamlit secrets.")
-    st.stop() # Stop the app if the key is not available
-
+    st.stop()
 
 # --- Main App Logic ---
 uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
-    # Display the uploaded image
+    # Create two columns for a better layout
+    col1, col2 = st.columns(2)
+
     image = Image.open(uploaded_file)
-    
-    # Convert image to bytes
     with io.BytesIO() as output:
         image.save(output, format="JPEG")
         image_bytes = output.getvalue()
 
-    # Fixed the deprecated parameter here
-    st.image(image, caption="మీరు అప్‌లోడ్ చేసిన చిత్రం (Your Uploaded Image)", use_container_width=True)
+    # Display the image in the first column
+    with col1:
+        st.image(image, caption="మీరు అప్‌లోడ్ చేసిన చిత్రం (Your Uploaded Image)")
 
-    with st.spinner("ఆంగ్ల వివరణను రూపొందిస్తోంది... (Generating English description...)"):
-        # 1. Get English caption
-        # --- THIS IS THE LINE THAT HAS BEEN CHANGED TO A MORE RELIABLE MODEL ---
-        caption_api_url = "https://api-inference.huggingface.co/models/microsoft/trocr-base-handwritten"
-        caption_result = query_api(hf_api_key, caption_api_url, image_bytes)
+    # Display the results in the second column
+    with col2:
+        with st.spinner("ఆంగ్ల వివరణను రూపొందిస్తోంది... (Generating English description...)"):
+            # Using the best model for image captioning
+            caption_api_url = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large"
+            caption_result = query_api(hf_api_key, caption_api_url, image_bytes)
 
-        if "error" in caption_result:
-            st.error(caption_result['error'])
-        else:
-            english_caption = caption_result[0]['generated_text']
-            st.info(f"**English Caption:** {english_caption}")
+            if "error" in caption_result:
+                st.error(caption_result['error'])
+            else:
+                english_caption = caption_result[0]['generated_text']
+                st.info(f"**English Caption:**\n\n{english_caption}")
 
-            with st.spinner("తెలుగులోకి అనువదిస్తోంది... (Translating to Telugu...)"):
-                # 2. Translate the caption to Telugu
-                translation_api_url = "https://api-inference.huggingface.co/models/Helsinki-NLP/opus-mt-en-te"
-                translation_payload = {"inputs": english_caption}
-                translation_result = query_api(hf_api_key, translation_api_url, translation_payload)
+                with st.spinner("తెలుగులోకి అనువదిస్తోంది... (Translating to Telugu...)"):
+                    translation_api_url = "https://api-inference.huggingface.co/models/Helsinki-NLP/opus-mt-en-te"
+                    translation_payload = {"inputs": english_caption}
+                    translation_result = query_api(hf_api_key, translation_api_url, translation_payload)
 
-                if "error" in translation_result:
-                    st.error(translation_result['error'])
-                else:
-                    telugu_caption = translation_result[0]['translation_text']
-                    st.success(f"**తెలుగు వివరణ (Telugu Description):** {telugu_caption}")
+                    if "error" in translation_result:
+                        st.error(translation_result['error'])
+                    else:
+                        telugu_caption = translation_result[0]['translation_text']
+                        st.success(f"**తెలుగు వివరణ (Telugu Description):**\n\n{telugu_caption}")
+
