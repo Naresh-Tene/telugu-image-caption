@@ -1,6 +1,6 @@
 streamlit
-requests
 Pillow
 transformers
 torch
 accelerate
+sentencepiece
