@@ -69,7 +69,7 @@ if uploaded_file is not None:
     with st.spinner("ఆంగ్ల వివరణను రూపొందిస్తోంది... (Generating English description...)"):
         # 1. Get English caption
         # --- THIS IS THE LINE THAT HAS BEEN CHANGED TO A MORE RELIABLE MODEL ---
-        caption_api_url = "https://api-inference.huggingface.co/models/nlpconnect/vit-gpt2-image-captioning"
+        caption_api_url = "https://api-inference.huggingface.co/models/microsoft/trocr-base-handwritten"
         caption_result = query_api(hf_api_key, caption_api_url, image_bytes)
 
         if "error" in caption_result:
